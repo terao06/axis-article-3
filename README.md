@@ -16,7 +16,7 @@ Contentsquare 社の調査によると、ある保険会社の見積もりサイ
 
 | 指標 | 数値 |
 |------|------|
-| フォームエラー発生率 | 48% |
+| フォームエラー発生率 | 47% |
 | エラー後の断念率 | 13% |
 | **全体に対する離脱率** | **約 6.1%** |
 
@@ -75,7 +75,7 @@ Contentsquare 社の調査によると、ある保険会社の見積もりサイ
 
 本資料では、低照度画像の明るさ調整に使用できる 2 つの AI モデルについて調査・比較を行う。
 
-| 項目 | MST++ (Multi-scale Spectral Transformer++) | Zero-DCE (Zero-Reference Deep Curve Estimation) |
+| 項目 | MST++ (Multi-stage Spectral-wise Transformer) | Zero-DCE (Zero-Reference Deep Curve Estimation) |
 |------|-------------------------------------------|-------------------------------------------------|
 | 発表年 | 2022 (NTIRE Challenge) | 2020 (CVPR) |
 | アーキテクチャ | Transformer (Attention ベース) | CNN (軽量) |
@@ -85,15 +85,14 @@ Contentsquare 社の調査によると、ある保険会社の見積もりサイ
 
 ---
 
-#### 1. MST++ (Multi-scale Spectral Transformer++)
+#### 1. MST++ (Multi-stage Spectral-wise Transformer)
 
 ##### 1.1 概要
 
-**MST++** は、NTIRE 2022 Night Photography Rendering Challenge において優秀な結果を残した Transformer ベースの画像強調モデルである。スペクトル次元に対する Multi-head Self-Attention を核として、U-Net 型のエンコーダ・デコーダ構造を採用している。
+**MST++** は、スペクトル復元向けに提案された Transformer ベースのモデルである。今回は、MST++ のアーキテクチャを RGB 3 チャネル入出力の画像強調向けに構成し、NTIRE Night Photography データで学習した重み `MST_Plus_Plus_8x1150.pth` を使用した。スペクトル方向の Multi-head Self-Attention を核として、U-Net 型のエンコーダ・デコーダ構造を採用している。
 
-- **論文**: *MST++: Multi-stage Spectral-wise Transformer for Efficient Spectral Super-Resolution* (CVPR Workshops 2022)
-- **開発元**: Codin Group (同グループは RetinexFormer も開発)
-- **GitHub**: https://github.com/caiyuanhao1998/MST-Plus-Plus
+- **論文**: *MST++: Multi-stage Spectral-wise Transformer for Efficient Spectral Reconstruction* (CVPR Workshops 2022)
+- **MST++ GitHub**: https://github.com/caiyuanhao1998/MST-Plus-Plus
 
 ##### 1.2 アーキテクチャ
 
@@ -230,15 +229,11 @@ $$x_{n} = x_{n-1} + r_n \cdot (x_{n-1}^2 - x_{n-1})$$
 
 #### 4. 参考文献
 
-1. Yuanhao Cai et al., **"MST++: Multi-stage Spectral-wise Transformer for Efficient Spectral Super-Resolution"**, CVPR Workshops, 2022.  
+1. Yuanhao Cai et al., **"MST++: Multi-stage Spectral-wise Transformer for Efficient Spectral Reconstruction"**, CVPR Workshops, 2022.
    https://arxiv.org/abs/2204.07256
 
 2. Chunle Guo et al., **"Zero-Reference Deep Curve Estimation for Low-Light Image Enhancement"**, CVPR, 2020.  
    https://arxiv.org/abs/2001.06826
-
-3. Yuanhao Cai et al., **"RetinexFormer: One-stage Retinex-based Transformer for Low-light Image Enhancement"**, ICCV, 2023.  
-   https://arxiv.org/abs/2303.06705
-
 
 ### 顔補正
 #### 概要
@@ -542,7 +537,7 @@ roll は回転で補正可能だが、yaw と pitch は顔の 3D 向きに起因
 
 ## モデル選定
 上記調査内容より今回は以下のモデルを使用したアプリを作成する。
-* Multi-scale Spectral Transformer++ (明るさ調整用)
+* MST++ (Multi-stage Spectral-wise Transformer、明るさ調整用)
 * GFPGAN (顔補正)
 * MediaPipe Face Landmarker (顔角度補正)
 * (SCRFDを顔存在チェック用バリデーションで使用している)
@@ -557,7 +552,7 @@ sequenceDiagram
         participant FaceAPI as face api
         participant SCRFD as SCRFD
         participant FaceAlignment as FaceAlignment
-        participant Retinexformer as Retinexformer
+        participant MSTPlusPlus as MST++
         participant GFPGAN as GFPGAN
         participant RealESRGAN as RealESRGAN
     end
@@ -590,10 +585,10 @@ sequenceDiagram
         end
 
         opt use_brightness_adjustment_lm = true
-            FaceAPI->>S3: Retinexformer weightを取得
-            S3-->>FaceAPI: retinexformer weight
-            FaceAPI->>Retinexformer: 明るさ調整
-            Retinexformer-->>FaceAPI: 補正後画像
+            FaceAPI->>S3: MST++ weightを取得
+            S3-->>FaceAPI: MST_Plus_Plus_8x1150.pth
+            FaceAPI->>MSTPlusPlus: 明るさ調整
+            MSTPlusPlus-->>FaceAPI: 補正後画像
         end
 
         opt use_correction_lm = true
